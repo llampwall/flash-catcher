@@ -8,6 +8,7 @@ const state = {
   paused: false,
   sortBy: 'most-recent',
   filterClass: 'all',
+  flashOnly: true,        // default: hide background/piped processes
   expanded: new Set(),    // expanded chain keys
   eventSource: null,
   reconnectDelay: 1000,
@@ -21,6 +22,7 @@ function init() {
   els.statusRows   = document.getElementById('status-rows');
   els.sortSelect   = document.getElementById('sort-select');
   els.filterClass  = document.getElementById('filter-class');
+  els.flashOnly    = document.getElementById('flash-only');
   els.pauseBtn     = document.getElementById('pause-btn');
   els.clearBtn     = document.getElementById('clear-btn');
   els.rowsBody     = document.getElementById('rows-body');
@@ -32,6 +34,11 @@ function init() {
 
   els.filterClass.addEventListener('change', () => {
     state.filterClass = els.filterClass.value;
+    renderRows();
+  });
+
+  els.flashOnly.addEventListener('change', () => {
+    state.flashOnly = els.flashOnly.checked;
     renderRows();
   });
 
@@ -146,8 +153,9 @@ function sortedRows() {
 }
 
 function filteredRows(rows) {
-  if (state.filterClass === 'all') return rows;
-  return rows.filter(r => r.classification === state.filterClass);
+  if (state.flashOnly) rows = rows.filter(r => (r.visible_count || 0) > 0);
+  if (state.filterClass !== 'all') rows = rows.filter(r => r.classification === state.filterClass);
+  return rows;
 }
 
 function renderRows() {
