@@ -30,10 +30,15 @@ windows = { version = "0.56", features = [
     "Win32_Security",
     "Win32_System_SystemServices",
     "Win32_System_Diagnostics_ToolHelp",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_Etw",
 ] }
 parking_lot = "0.12"
 dashmap = "6"
 futures = "0.3"
+flate2 = "1"
 
 [profile.release]
 opt-level = 3
