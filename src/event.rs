@@ -116,6 +116,10 @@ pub struct FlashEvent {
 
 impl FlashEvent {
     pub fn new_id() -> String {
-        unimplemented!("ulid or similar monotonic id")
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let ts = chrono::Utc::now().timestamp_micros() as u64;
+        let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+        format!("{:016x}{:08x}", ts, seq)
     }
 }

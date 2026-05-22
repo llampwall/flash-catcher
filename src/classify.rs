@@ -47,8 +47,39 @@ pub const BUILTIN_RULES: &[ClassifyRule] = &[
 ];
 
 /// Apply rules to a process + blame chain. Returns (classification, rule_name).
-pub fn classify(_info: &ProcessInfo, _ancestor_names: &[String]) -> (Classification, Option<&'static str>) {
-    unimplemented!("walk BUILTIN_RULES in order, return first match or (Unknown, None)")
+pub fn classify(info: &ProcessInfo, ancestor_names: &[String]) -> (Classification, Option<&'static str>) {
+    let proc_name_lower = info.name.to_lowercase();
+    let cmdline_lower = info
+        .command_line
+        .as_deref()
+        .unwrap_or("")
+        .to_lowercase();
+
+    for rule in BUILTIN_RULES {
+        let name_match = rule
+            .name_eq
+            .map(|n| proc_name_lower == n.to_lowercase())
+            .unwrap_or(true);
+
+        let cmdline_match = rule
+            .cmdline_contains
+            .map(|needle| cmdline_lower.contains(&needle.to_lowercase()))
+            .unwrap_or(true);
+
+        let ancestor_match = rule
+            .ancestor_name_eq
+            .map(|n| {
+                let target = n.to_lowercase();
+                ancestor_names.iter().any(|a| a.to_lowercase() == target)
+            })
+            .unwrap_or(true);
+
+        if name_match && cmdline_match && ancestor_match {
+            return (rule.classification, Some(rule.name));
+        }
+    }
+
+    (Classification::Unknown, None)
 }
 
 /// Dump the active rules as JSON (for `flash-watcher classify-rules`).
