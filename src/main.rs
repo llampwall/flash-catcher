@@ -25,7 +25,12 @@ use store::Store;
 use web::AppState;
 
 fn log_path() -> std::path::PathBuf {
-    std::env::temp_dir().join("flash-watcher.log")
+    // Write next to the exe so the path is always predictable regardless
+    // of whether the process is elevated (elevated temp dir differs).
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("flash-watcher.log")))
+        .unwrap_or_else(|| std::path::PathBuf::from("flash-watcher.log"))
 }
 
 fn step_log(msg: &str) {
@@ -87,11 +92,15 @@ async fn main() {
 }
 
 async fn run_collector(args: cli::RunArgs) -> Result<()> {
-    step_log("run_collector: checking elevation");
-    if !args.skip_admin_check {
-        admin::require_elevation_or_relaunch()?;
+    let elevated = admin::is_elevated();
+    step_log(&format!("run_collector: is_elevated={}", elevated));
+    if !args.skip_admin_check && !elevated {
+        anyhow::bail!(
+            "ETW capture requires elevation. Run flash-watcher from an Administrator terminal. \
+             (is_elevated=false)"
+        );
     }
-    step_log("run_collector: elevation OK");
+    step_log("run_collector: proceeding (elevated or check skipped)");
 
     step_log(&format!("run_collector: opening store at {:?}", args.data_dir));
     let store = Arc::new(Store::open(&args.data_dir)?);

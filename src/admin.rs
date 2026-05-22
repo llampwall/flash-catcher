@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 pub fn is_elevated() -> bool {
     use windows::Win32::Foundation::{CloseHandle, HANDLE};
     use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
@@ -22,14 +20,4 @@ pub fn is_elevated() -> bool {
         let _ = CloseHandle(token);
         ok.is_ok() && elevation.TokenIsElevated != 0
     }
-}
-
-pub fn require_elevation_or_relaunch() -> Result<()> {
-    if is_elevated() {
-        return Ok(());
-    }
-    anyhow::bail!(
-        "ETW capture requires elevation. Run flash-watcher from an Administrator terminal \
-         (right-click → Run as administrator, or open an elevated PowerShell)."
-    );
 }
