@@ -1,0 +1,32 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# node / pnpm
+node_modules/
+.pnpm-store/
+.pnpm/
+
+# python
+.venv/
+
+# env
+.env
+.env.*
+*.log
+
+# logs
+logs/*
+!logs/.keep
+
+# build artifacts (common)
+dist/
+build/
+coverage/
+
+.codex/sessions/
+
+# strap deploy (machine-local, do not commit)
+ecosystem.config.cjs

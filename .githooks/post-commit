@@ -1,0 +1,12 @@
+#!/bin/sh
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$ROOT" ]; then
+  exit 0
+fi
+HOOK="$ROOT/.githooks/post-commit.ps1"
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$HOOK"
+else
+  powershell -NoProfile -ExecutionPolicy Bypass -File "$HOOK"
+fi
+exit 0

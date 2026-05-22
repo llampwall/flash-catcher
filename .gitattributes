@@ -1,0 +1,20 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Allow cmd/bat to remain CRLF if you ever add them
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Treat binaries as binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.tgz  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
