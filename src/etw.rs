@@ -19,6 +19,9 @@ pub enum RawEvent {
         image_file_name: String,
         command_line: String,
         timestamp: DateTime<Utc>,
+        /// True for DCStart (opcode 3): process existed before trace began.
+        /// These should never be marked visible_flash — the flash (if any) is long gone.
+        is_dc: bool,
     },
     ProcessExit {
         pid: u32,
@@ -84,6 +87,7 @@ pub fn start_kernel_session() -> Result<(EtwSession, mpsc::Receiver<RawEvent>)> 
                         image_file_name: image,
                         command_line: cmdline,
                         timestamp: ts,
+                        is_dc: opcode == 3,
                     }
                 }
                 2 | 4 => {

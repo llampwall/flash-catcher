@@ -137,6 +137,8 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
 
     let blame_cache = BlameCache::new();
     let conhost_pairer = ConhostPairer::new();
+    // pid → blame chain key; lets us update aggregator lifetime on ProcessExit
+    let mut pid_to_key: std::collections::HashMap<u32, String> = std::collections::HashMap::new();
 
     // Rotation timer
     let store_rot = store.clone();
@@ -175,6 +177,7 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
                 image_file_name,
                 command_line,
                 timestamp,
+                is_dc,
             } => {
                 blame_cache.record(*pid, *ppid, image_file_name, None, event::Subsystem::Unknown);
 
@@ -240,7 +243,11 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
                 // Console parents share their console; the child inherits it silently.
                 // Session 0 processes (services) are never shown to the user.
                 let parent_sub = blame_cache.parent_subsystem(*pid);
-                let visible_flash = process_info.subsystem == Subsystem::Console
+                // DC events (existing processes at trace start) never produce a
+                // visible flash — the process has been running for hours.
+                // Only opcode-1 (new spawn) events can create a real flash.
+                let visible_flash = !is_dc
+                    && process_info.subsystem == Subsystem::Console
                     && process_info.session_id > 0
                     && parent_sub == Subsystem::Windows;
 
@@ -258,6 +265,7 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
                     visible_flash,
                 };
 
+                pid_to_key.insert(*pid, flash_event.blame.key.clone());
                 state.push_recent_event(flash_event.clone());
                 aggregator.lock().ingest(&flash_event);
 
@@ -271,19 +279,27 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
                 blame_cache.mark_exited(*pid);
                 conhost_pairer.mark_conhost_exited(*pid, *timestamp);
 
+                let blame_key = pid_to_key.remove(pid);
+                let mut lifetime_computed: Option<u64> = None;
+
                 // Update the most recent flash_event for this pid with exit info
                 // (we update in the ring; JSONL is append-only so we don't rewrite)
                 {
                     let mut ring = state.recent_events.lock();
                     if let Some(ev) = ring.iter_mut().rev().find(|e| e.process.pid == *pid) {
                         let spawned = ev.spawned_at;
+                        let lms = (timestamp.timestamp_millis() - spawned.timestamp_millis())
+                            .unsigned_abs();
                         ev.exited_at = Some(*timestamp);
                         ev.exit_code = Some(*exit_code);
-                        ev.lifetime_ms = Some(
-                            (timestamp.timestamp_millis() - spawned.timestamp_millis())
-                                .unsigned_abs(),
-                        );
+                        ev.lifetime_ms = Some(lms);
+                        lifetime_computed = Some(lms);
                     }
+                }
+
+                // Propagate lifetime into the aggregator row
+                if let (Some(key), Some(ms)) = (&blame_key, lifetime_computed) {
+                    aggregator.lock().update_lifetime(key, ms);
                 }
             }
         }

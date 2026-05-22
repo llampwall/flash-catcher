@@ -89,6 +89,12 @@ impl Aggregator {
         rows
     }
 
+    pub fn update_lifetime(&mut self, key: &str, lifetime_ms: u64) {
+        if let Some(row) = self.rows.get_mut(key) {
+            row.total_console_time_ms += lifetime_ms;
+        }
+    }
+
     pub fn row_count(&self) -> usize {
         self.rows.len()
     }
