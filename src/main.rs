@@ -25,12 +25,9 @@ use store::Store;
 use web::AppState;
 
 fn log_path() -> std::path::PathBuf {
-    // Write next to the exe so the path is always predictable regardless
-    // of whether the process is elevated (elevated temp dir differs).
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.join("flash-watcher.log")))
-        .unwrap_or_else(|| std::path::PathBuf::from("flash-watcher.log"))
+    // Elevated processes often can't access user-mapped drives (P:, subst, etc.).
+    // Write to C:\fw.log which is always reachable from any elevation level.
+    std::path::PathBuf::from(r"C:\fw.log")
 }
 
 fn step_log(msg: &str) {
@@ -64,6 +61,9 @@ fn install_panic_hook() {
 
 #[tokio::main]
 async fn main() {
+    // Absolute-path write as the very first thing — proves main() was entered
+    // even if P:\ is unreachable from elevated context.
+    let _ = std::fs::write(r"C:\fw.log", format!("flash-watcher main() entered at {:?}\n", std::time::SystemTime::now()));
     install_panic_hook();
     step_log("flash-watcher starting");
 
