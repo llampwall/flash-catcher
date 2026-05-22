@@ -37,7 +37,13 @@ fn filetime_to_utc(ts: i64) -> DateTime<Utc> {
     DateTime::from_timestamp(secs, nanos).unwrap_or_else(Utc::now)
 }
 
-pub fn start_kernel_session() -> Result<mpsc::Receiver<RawEvent>> {
+/// Opaque guard that keeps the ferrisetw KernelTrace alive.
+/// Drop it to stop the ETW session.
+pub struct EtwSession {
+    _trace: ferrisetw::trace::KernelTrace,
+}
+
+pub fn start_kernel_session() -> Result<(EtwSession, mpsc::Receiver<RawEvent>)> {
     let (tx, rx) = mpsc::channel::<RawEvent>(1024);
 
     // The ferrisetw callback fires on a native OS thread — not a tokio thread.
@@ -133,16 +139,7 @@ pub fn start_kernel_session() -> Result<mpsc::Receiver<RawEvent>> {
         Err(e) => return Err(anyhow!("ETW session start failed: {:?}", e)),
     };
 
-    // Keep the trace alive for the process lifetime
-    std::thread::spawn(move || {
-        let _trace = trace;
-        // Park forever — the trace lives as long as this thread
-        loop {
-            std::thread::sleep(std::time::Duration::from_secs(3600));
-        }
-    });
-
-    Ok(rx)
+    Ok((EtwSession { _trace: trace }, rx))
 }
 
 pub fn enrich_raw(raw: &RawEvent) -> Result<Option<ProcessInfo>> {

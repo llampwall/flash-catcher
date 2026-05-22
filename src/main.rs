@@ -24,15 +24,35 @@ use parking_lot::Mutex;
 use store::Store;
 use web::AppState;
 
+fn log_path() -> std::path::PathBuf {
+    std::env::temp_dir().join("flash-watcher.log")
+}
+
+fn step_log(msg: &str) {
+    let line = format!("[{}] {}\n", chrono::Utc::now().format("%H:%M:%S%.3f"), msg);
+    eprint!("{}", line);
+    let _ = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path())
+        .and_then(|mut f| std::io::Write::write_all(&mut f, line.as_bytes()));
+}
+
 fn pause_before_exit() {
-    eprintln!("\n[press Enter to close]");
-    let _ = std::io::stdin().read_line(&mut String::new());
+    step_log("[press Enter to close, or window auto-closes in 60s]");
+    let mut s = String::new();
+    // read_line returns Ok(0) when stdin is null/closed — fall through to sleep
+    let n = std::io::stdin().read_line(&mut s).unwrap_or(0);
+    if n == 0 {
+        std::thread::sleep(std::time::Duration::from_secs(60));
+    }
 }
 
 fn install_panic_hook() {
     let orig = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         orig(info);
+        step_log(&format!("PANIC: {}", info));
         pause_before_exit();
     }));
 }
@@ -40,6 +60,7 @@ fn install_panic_hook() {
 #[tokio::main]
 async fn main() {
     install_panic_hook();
+    step_log("flash-watcher starting");
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -47,6 +68,8 @@ async fn main() {
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
+
+    step_log(&format!("log file: {}", log_path().display()));
 
     let cli = Cli::parse();
     let result = match cli.command {
@@ -56,22 +79,26 @@ async fn main() {
     };
 
     if let Err(e) = result {
-        eprintln!("\nError: {:#}", e);
+        step_log(&format!("FATAL ERROR: {:#}", e));
         pause_before_exit();
         std::process::exit(1);
     }
+    step_log("main exiting normally");
 }
 
 async fn run_collector(args: cli::RunArgs) -> Result<()> {
+    step_log("run_collector: checking elevation");
     if !args.skip_admin_check {
         admin::require_elevation_or_relaunch()?;
     }
+    step_log("run_collector: elevation OK");
 
+    step_log(&format!("run_collector: opening store at {:?}", args.data_dir));
     let store = Arc::new(Store::open(&args.data_dir)?);
+    step_log("run_collector: store opened");
     let aggregator = Arc::new(Mutex::new(Aggregator::new()));
 
     // Replay existing JSONL into the aggregator for backfill
-    tracing::info!("Replaying existing events from {:?}", args.data_dir);
     let history = Store::read_all(&args.data_dir).await.unwrap_or_default();
     {
         let mut agg = aggregator.lock();
@@ -81,7 +108,7 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
     }
     let historical_count = history.len();
     store.total_events.fetch_add(historical_count as u64, std::sync::atomic::Ordering::Relaxed);
-    tracing::info!("Replayed {} historical events", historical_count);
+    step_log(&format!("run_collector: replayed {} historical events", historical_count));
 
     let state = AppState::new(store.clone(), aggregator.clone(), true);
 
@@ -94,9 +121,10 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
         }
     }
 
-    // Start ETW kernel session
-    let mut rx = etw::start_kernel_session()?;
-    tracing::info!("ETW kernel session started");
+    // Start ETW kernel session — _etw_session kept alive on stack until we return
+    step_log("run_collector: starting ETW kernel session");
+    let (_etw_session, mut rx) = etw::start_kernel_session()?;
+    step_log("run_collector: ETW kernel session started — entering collector loop");
 
     let blame_cache = BlameCache::new();
     let conhost_pairer = ConhostPairer::new();
@@ -118,16 +146,19 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
     let state_web = state.clone();
     tokio::spawn(async move {
         if let Err(e) = web::serve(state_web, &bind).await {
-            tracing::error!("Web server error: {}", e);
+            step_log(&format!("web server error: {:#}", e));
         }
     });
+    step_log(&format!("run_collector: web server spawned on {}", args.bind));
 
     if args.open {
         open_browser(&args.bind);
     }
 
     // Collector loop — process ETW events
+    let mut events_received: u64 = 0;
     while let Some(raw) = rx.recv().await {
+        events_received += 1;
         match &raw {
             etw::RawEvent::ProcessStart {
                 pid,
@@ -245,7 +276,11 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
         }
     }
 
-    Ok(())
+    step_log(&format!(
+        "run_collector: ETW channel closed after {} events — session ended",
+        events_received
+    ));
+    anyhow::bail!("ETW channel closed unexpectedly after {} events", events_received);
 }
 
 async fn run_viewer(args: cli::ViewArgs) -> Result<()> {
