@@ -40,8 +40,16 @@ fn filetime_to_utc(ts: i64) -> DateTime<Utc> {
 pub fn start_kernel_session() -> Result<mpsc::Receiver<RawEvent>> {
     let (tx, rx) = mpsc::channel::<RawEvent>(1024);
 
-    let process_callback = {
+    // The ferrisetw callback fires on a native OS thread — not a tokio thread.
+    // blocking_send() calls Handle::current() internally and panics when there is
+    // no tokio runtime on the calling thread.  Capture the handle here (we ARE on
+    // a tokio thread) and use handle.spawn() inside the callback instead.
+    let handle = tokio::runtime::Handle::current();
+
+    // Returns a fresh callback closure each call (each clone owns its own tx/handle).
+    let build_callback = || {
         let tx = tx.clone();
+        let handle = handle.clone();
         move |record: &EventRecord, schema_locator: &SchemaLocator| {
             let opcode = record.opcode();
             // 1 = ProcessStart, 3 = DCStart (existing when trace begins)
@@ -52,7 +60,7 @@ pub fn start_kernel_session() -> Result<mpsc::Receiver<RawEvent>> {
             let parser = Parser::create(record, &schema);
             let ts = filetime_to_utc(record.raw_timestamp());
 
-            match opcode {
+            let event = match opcode {
                 1 | 3 => {
                     let pid = parser
                         .try_parse::<u32>("ProcessId")
@@ -64,16 +72,12 @@ pub fn start_kernel_session() -> Result<mpsc::Receiver<RawEvent>> {
                     let cmdline = parser
                         .try_parse::<String>("CommandLine")
                         .unwrap_or_default();
-
-                    let event = RawEvent::ProcessStart {
+                    RawEvent::ProcessStart {
                         pid,
                         ppid,
                         image_file_name: image,
                         command_line: cmdline,
                         timestamp: ts,
-                    };
-                    if tx.blocking_send(event).is_err() {
-                        // Receiver dropped — trace should be stopped
                     }
                 }
                 2 | 4 => {
@@ -81,23 +85,24 @@ pub fn start_kernel_session() -> Result<mpsc::Receiver<RawEvent>> {
                         .try_parse::<u32>("ProcessId")
                         .unwrap_or_else(|_| record.process_id());
                     let exit_code = parser.try_parse::<i32>("ExitCode").unwrap_or(-1);
-
-                    let event = RawEvent::ProcessExit {
+                    RawEvent::ProcessExit {
                         pid,
                         exit_code,
                         timestamp: ts,
-                    };
-                    if tx.blocking_send(event).is_err() {
-                        // Receiver dropped
                     }
                 }
-                _ => {}
-            }
+                _ => return,
+            };
+
+            let tx2 = tx.clone();
+            handle.spawn(async move {
+                let _ = tx2.send(event).await;
+            });
         }
     };
 
     let provider = Provider::kernel(&kernel_providers::PROCESS_PROVIDER)
-        .add_callback(process_callback)
+        .add_callback(build_callback())
         .build();
 
     // Try to start; recover from leaked session (ERROR_ALREADY_EXISTS)
@@ -117,9 +122,7 @@ pub fn start_kernel_session() -> Result<mpsc::Receiver<RawEvent>> {
             stop_session(SESSION_NAME).ok();
 
             let provider2 = Provider::kernel(&kernel_providers::PROCESS_PROVIDER)
-                .add_callback(move |record: &EventRecord, schema_locator: &SchemaLocator| {
-                    let _ = (record, schema_locator);
-                })
+                .add_callback(build_callback())
                 .build();
             KernelTrace::new()
                 .named(SESSION_NAME.to_string())
