@@ -1,0 +1,14 @@
+{
+  ".githooks": [
+    ".githooks/post-commit",
+    ".githooks/post-commit.ps1"
+  ],
+  "commit": [
+    ".githooks/post-commit",
+    ".githooks/post-commit.ps1"
+  ],
+  "post commit": [
+    ".githooks/post-commit",
+    ".githooks/post-commit.ps1"
+  ]
+}

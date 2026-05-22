@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>flash-watcher</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header id="topbar">
+    <h1>flash-watcher</h1>
+    <div id="status">
+      <span id="status-etw" data-state="unknown">ETW: unknown</span>
+      <span id="status-events">0 events</span>
+      <span id="status-rows">0 chains</span>
+    </div>
+    <div id="controls">
+      <label>Sort:
+        <select id="sort-select">
+          <option value="most-recent">Most recent</option>
+          <option value="highest-count">Highest count</option>
+          <option value="longest-lifetime">Longest lifetime</option>
+        </select>
+      </label>
+      <label>Classification:
+        <select id="filter-class">
+          <option value="all">All</option>
+          <option value="unknown">Unknown only</option>
+          <option value="claude-code-probe">Claude Code probes</option>
+          <option value="chinvex">Chinvex</option>
+          <option value="our-code">Our code</option>
+        </select>
+      </label>
+      <button id="pause-btn" type="button">Pause</button>
+      <button id="clear-btn" type="button">Clear view</button>
+    </div>
+  </header>
+
+  <main>
+    <table id="rows-table">
+      <thead>
+        <tr>
+          <th>Chain</th>
+          <th>Count</th>
+          <th>Visible</th>
+          <th>Last seen</th>
+          <th>Total console time</th>
+          <th>Class</th>
+        </tr>
+      </thead>
+      <tbody id="rows-body">
+        <!-- rows injected by app.js -->
+      </tbody>
+    </table>
+  </main>
+
+  <template id="detail-template">
+    <section class="detail">
+      <div class="detail-summary">
+        <strong class="detail-chain"></strong>
+        <span class="detail-count"></span>
+      </div>
+      <table class="detail-events">
+        <thead>
+          <tr>
+            <th>Spawned</th>
+            <th>Lifetime</th>
+            <th>Exit</th>
+            <th>Subsystem</th>
+            <th>Stdout</th>
+            <th>Command line</th>
+          </tr>
+        </thead>
+        <tbody class="detail-events-body"></tbody>
+      </table>
+    </section>
+  </template>
+
+  <script src="/static/app.js" type="module"></script>
+</body>
+</html>

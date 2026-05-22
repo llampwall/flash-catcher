@@ -30,3 +30,9 @@ coverage/
 
 # strap deploy (machine-local, do not commit)
 ecosystem.config.cjs
+
+# Rust build output
+/target/
+
+# Captured JSONL events (runtime data, not source)
+/data/

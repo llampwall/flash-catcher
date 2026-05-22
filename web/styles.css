@@ -1,0 +1,68 @@
+:root {
+  --bg: #0b0d10;
+  --surface: #14181d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #ff4d4f;
+  --accent-dim: #5a1c1e;
+  --good: #3fb950;
+  --warn: #d29922;
+  --border: #21262d;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font: 13px/1.4 ui-monospace, Consolas, monospace; }
+
+#topbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+#topbar h1 { margin: 0; font-size: 14px; font-weight: 600; }
+#status { display: flex; gap: 12px; color: var(--muted); }
+#status [data-state="ok"]   { color: var(--good); }
+#status [data-state="warn"] { color: var(--warn); }
+#status [data-state="bad"]  { color: var(--accent); }
+
+#controls { display: flex; gap: 8px; align-items: center; }
+#controls select, #controls button {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  font: inherit;
+}
+
+main { padding: 8px 16px; }
+
+#rows-table { width: 100%; border-collapse: collapse; }
+#rows-table th, #rows-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+#rows-table th { color: var(--muted); font-weight: 500; }
+#rows-table tbody tr.row[data-class="unknown"]           { background: rgba(255, 77, 79, 0.06); }
+#rows-table tbody tr.row[data-class="unknown"] td:first-child { border-left: 2px solid var(--accent); }
+#rows-table tbody tr.row { cursor: pointer; }
+#rows-table tbody tr.row:hover { background: rgba(255, 255, 255, 0.03); }
+
+.detail {
+  margin: 4px 0 12px 24px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-left: 2px solid var(--accent-dim);
+}
+.detail-summary { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--muted); }
+.detail-events { width: 100%; border-collapse: collapse; }
+.detail-events th, .detail-events td { padding: 3px 6px; border-bottom: 1px solid var(--border); }
+.detail-events td.cmdline { font-family: ui-monospace, Consolas, monospace; color: var(--muted); white-space: pre-wrap; word-break: break-all; }
