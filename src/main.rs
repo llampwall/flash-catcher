@@ -24,17 +24,41 @@ use parking_lot::Mutex;
 use store::Store;
 use web::AppState;
 
+fn pause_before_exit() {
+    eprintln!("\n[press Enter to close]");
+    let _ = std::io::stdin().read_line(&mut String::new());
+}
+
+fn install_panic_hook() {
+    let orig = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        orig(info);
+        pause_before_exit();
+    }));
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
+    install_panic_hook();
+
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
         .init();
 
     let cli = Cli::parse();
-    match cli.command {
+    let result = match cli.command {
         Command::Run(args) => run_collector(args).await,
         Command::View(args) => run_viewer(args).await,
         Command::ClassifyRules(args) => print_classify_rules(args),
+    };
+
+    if let Err(e) = result {
+        eprintln!("\nError: {:#}", e);
+        pause_before_exit();
+        std::process::exit(1);
     }
 }
 
