@@ -1,4 +1,4 @@
-use crate::event::{BlameChain, BlameNode};
+use crate::event::{BlameChain, BlameNode, Subsystem};
 use dashmap::DashMap;
 use std::sync::Arc;
 
@@ -12,6 +12,7 @@ struct CachedNode {
     ppid: u32,
     name: String,
     exe_path: Option<String>,
+    subsystem: Subsystem,
     exited: bool,
 }
 
@@ -20,16 +21,34 @@ impl BlameCache {
         Self::default()
     }
 
-    pub fn record(&self, pid: u32, ppid: u32, name: &str, exe_path: Option<&str>) {
+    pub fn record(&self, pid: u32, ppid: u32, name: &str, exe_path: Option<&str>, subsystem: Subsystem) {
         self.nodes.insert(
             pid,
             CachedNode {
                 ppid,
                 name: name.to_string(),
                 exe_path: exe_path.map(|s| s.to_string()),
+                subsystem,
                 exited: false,
             },
         );
+    }
+
+    /// Returns the subsystem of the immediate parent of `pid`.
+    /// Used to detect whether a Console child creates a new visible window
+    /// (Windows-subsystem parent) or inherits an existing console (Console parent).
+    pub fn parent_subsystem(&self, pid: u32) -> Subsystem {
+        let ppid = match self.nodes.get(&pid) {
+            Some(n) => n.ppid,
+            None => return Subsystem::Unknown,
+        };
+        if ppid == 0 {
+            return Subsystem::Unknown;
+        }
+        self.nodes
+            .get(&ppid)
+            .map(|n| n.subsystem.clone())
+            .unwrap_or(Subsystem::Unknown)
     }
 
     pub fn mark_exited(&self, pid: u32) {
@@ -38,7 +57,7 @@ impl BlameCache {
         }
     }
 
-    pub fn walk(&self, pid: u32) -> BlameChain {
+    pub fn walk(&self, pid: u32, self_name: &str) -> BlameChain {
         let mut ancestors: Vec<BlameNode> = Vec::new();
         let mut visited = std::collections::HashSet::new();
         let mut current_ppid = {
@@ -79,7 +98,13 @@ impl BlameCache {
             }
         }
 
-        let key = chain_key(&ancestors);
+        // Processes with no traceable ancestors get their own name as key rather
+        // than collapsing everything into a single "unknown" row.
+        let key = if ancestors.is_empty() {
+            self_name.to_lowercase()
+        } else {
+            chain_key(&ancestors)
+        };
         BlameChain { ancestors, key }
     }
 

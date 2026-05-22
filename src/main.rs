@@ -176,7 +176,7 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
                 command_line,
                 timestamp,
             } => {
-                blame_cache.record(*pid, *ppid, image_file_name, None);
+                blame_cache.record(*pid, *ppid, image_file_name, None, event::Subsystem::Unknown);
 
                 let process_info = match etw::enrich_raw(&raw) {
                     Ok(Some(info)) => info,
@@ -208,17 +208,16 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
                     }
                 };
 
-                // Update exe_path in blame cache if we got it
-                if let Some(ref path) = process_info.exe_path {
-                    blame_cache.record(
-                        *pid,
-                        *ppid,
-                        image_file_name,
-                        Some(path.as_str()),
-                    );
-                }
+                // Update blame cache with enriched subsystem (and exe_path if found)
+                blame_cache.record(
+                    *pid,
+                    *ppid,
+                    image_file_name,
+                    process_info.exe_path.as_deref(),
+                    process_info.subsystem,
+                );
 
-                let blame = blame_cache.walk(*pid);
+                let blame = blame_cache.walk(*pid, image_file_name);
                 let ancestor_names: Vec<String> = blame
                     .ancestors
                     .iter()
@@ -236,9 +235,14 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
                     None
                 };
 
+                // A visible flash only happens when a GUI (Windows-subsystem) parent
+                // spawns a Console child — that child must create a new console window.
+                // Console parents share their console; the child inherits it silently.
+                // Session 0 processes (services) are never shown to the user.
+                let parent_sub = blame_cache.parent_subsystem(*pid);
                 let visible_flash = process_info.subsystem == Subsystem::Console
-                    && process_info.stdio.stdout != event::HandleKind::Pipe
-                    && process_info.stdio.stdout != event::HandleKind::Null;
+                    && process_info.session_id > 0
+                    && parent_sub == Subsystem::Windows;
 
                 let flash_event = FlashEvent {
                     event_id: FlashEvent::new_id(),
