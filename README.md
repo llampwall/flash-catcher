@@ -8,7 +8,7 @@ Standalone Windows console-flash investigator. Headless ETW collector + local we
 
 ## Status
 
-Project created 2026-05-22. Spec in progress.
+v0.1.0 — implemented 2026-05-22. Dashboard at **http://127.0.0.1:7790/** when running in collector or view mode.
 
 ## Dev
 
