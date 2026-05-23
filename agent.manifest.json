@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "status": "active",
   "description": "Windows console-flash investigator. ETW kernel-session collector that captures every process start/exit with full blame-chain ancestry, command line, subsystem, integrity level, and conhost pairing. Local web dashboard groups events by blame chain for live triage; same dashboard re-reads the JSONL for post-mortem analysis. Used to diagnose visible console flashes caused by short-lived subprocesses spawned by AllMind, Claude Code probes, and other tooling.",
-  "invocation_type": "agent",
+  "invocation_type": "internal",
   "owner": "jordan",
   "last_updated": "2026-05-23",
   "infrastructure": {
@@ -17,14 +17,12 @@
       "id": "flash-watcher.start",
       "verb": "start",
       "domain": "diagnostics",
-      "summary": "Start the ETW collector + dashboard. Requires elevation; UAC prompt is triggered automatically if not already elevated.",
+      "summary": "Start the ETW collector + dashboard via the registered 'flash-watcher' scheduled task (runs elevated, no per-call UAC). One-time task registration required.",
       "accepts": {
-        "bind": { "type": "string", "description": "Bind address override (default 127.0.0.1:7790)" },
-        "data_dir": { "type": "string", "description": "Override JSONL data directory (default ./data)" },
-        "open": { "type": "boolean", "description": "Open the dashboard in the default browser after start" }
+        "bind": { "type": "string", "description": "Bind address override (default 127.0.0.1:7790). Health-check URL only; task definition controls the actual bind." }
       },
-      "returns": ["pid", "dashboard_url", "elevated"],
-      "requires_approval": false,
+      "returns": ["dashboard_url", "elevated", "via"],
+      "requires_approval": true,
       "examples": [
         "start flash watcher",
         "begin capturing console flashes",
