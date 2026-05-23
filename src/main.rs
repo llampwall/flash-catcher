@@ -107,28 +107,11 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
     step_log("run_collector: store opened");
     let aggregator = Arc::new(Mutex::new(Aggregator::new()));
 
-    // Replay existing JSONL into the aggregator for backfill
-    let history = Store::read_all(&args.data_dir).await.unwrap_or_default();
-    {
-        let mut agg = aggregator.lock();
-        for ev in &history {
-            agg.ingest(ev);
-        }
-    }
-    let historical_count = history.len();
-    store.total_events.fetch_add(historical_count as u64, std::sync::atomic::Ordering::Relaxed);
-    step_log(&format!("run_collector: replayed {} historical events", historical_count));
-
+    // Live view starts empty — historical events stay in events.jsonl for
+    // `flash-watcher view`. Backfilling them into the live aggregator made
+    // counts (incl. visible_count) look like a burst on dashboard open and
+    // poisoned the visible-only filter with stale events from prior sessions.
     let state = AppState::new(store.clone(), aggregator.clone(), true);
-
-    // Pre-populate recent_events ring with last N historical events
-    {
-        let take = history.len().min(2000);
-        let skip = history.len().saturating_sub(take);
-        for ev in history.into_iter().skip(skip) {
-            state.push_recent_event(ev);
-        }
-    }
 
     // Start ETW kernel session — _etw_session kept alive on stack until we return
     step_log("run_collector: starting ETW kernel session");
@@ -266,10 +249,18 @@ async fn run_collector(args: cli::RunArgs) -> Result<()> {
                 };
 
                 pid_to_key.insert(*pid, flash_event.blame.key.clone());
-                state.push_recent_event(flash_event.clone());
-                aggregator.lock().ingest(&flash_event);
 
-                if let Err(e) = store.append(&flash_event).await {
+                // ETW data-collection-start events synthesize ProcessStart for
+                // every process running when the kernel session began — they
+                // are state, not flashes. Persist for forensics but don't let
+                // them contaminate the live dashboard counts or stream.
+                let is_dc = *is_dc;
+                if !is_dc {
+                    state.push_recent_event(flash_event.clone());
+                    aggregator.lock().ingest(&flash_event);
+                }
+
+                if let Err(e) = store.append(&flash_event, !is_dc).await {
                     tracing::warn!("Store append error: {}", e);
                 }
             }

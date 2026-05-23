@@ -41,7 +41,11 @@ impl Store {
         })
     }
 
-    pub async fn append(&self, event: &FlashEvent) -> Result<()> {
+    /// Persist an event to JSONL, optionally broadcasting it to live SSE
+    /// subscribers. Forensic/state events (e.g. ETW data-collection-start)
+    /// pass `broadcast=false` so the live dashboard isn't polluted with
+    /// "events" that represent processes already running at trace start.
+    pub async fn append(&self, event: &FlashEvent, broadcast: bool) -> Result<()> {
         let line = serde_json::to_string(event).context("serialize FlashEvent")?;
         {
             let mut w = self.writer.lock().await;
@@ -49,8 +53,10 @@ impl Store {
             w.flush().context("flush events.jsonl")?;
         }
         self.total_events.fetch_add(1, Ordering::Relaxed);
-        // Broadcast — lagging subscribers drop events rather than blocking
-        let _ = self.tx.send(event.clone());
+        if broadcast {
+            // Lagging subscribers drop events rather than blocking
+            let _ = self.tx.send(event.clone());
+        }
         Ok(())
     }
 
