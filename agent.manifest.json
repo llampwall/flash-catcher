@@ -1,0 +1,103 @@
+{
+  "name": "flash-watcher",
+  "version": "0.1.0",
+  "status": "active",
+  "description": "Windows console-flash investigator. ETW kernel-session collector that captures every process start/exit with full blame-chain ancestry, command line, subsystem, integrity level, and conhost pairing. Local web dashboard groups events by blame chain for live triage; same dashboard re-reads the JSONL for post-mortem analysis. Used to diagnose visible console flashes caused by short-lived subprocesses spawned by AllMind, Claude Code probes, and other tooling.",
+  "invocation_type": "agent",
+  "owner": "jordan",
+  "last_updated": "2026-05-23",
+  "infrastructure": {
+    "runtime": "rust",
+    "port": 7790,
+    "requires_elevation": true,
+    "binary": "target/release/flash-watcher.exe"
+  },
+  "capabilities": [
+    {
+      "id": "flash-watcher.start",
+      "verb": "start",
+      "domain": "diagnostics",
+      "summary": "Start the ETW collector + dashboard. Requires elevation; UAC prompt is triggered automatically if not already elevated.",
+      "accepts": {
+        "bind": { "type": "string", "description": "Bind address override (default 127.0.0.1:7790)" },
+        "data_dir": { "type": "string", "description": "Override JSONL data directory (default ./data)" },
+        "open": { "type": "boolean", "description": "Open the dashboard in the default browser after start" }
+      },
+      "returns": ["pid", "dashboard_url", "elevated"],
+      "requires_approval": false,
+      "examples": [
+        "start flash watcher",
+        "begin capturing console flashes",
+        "turn flash watcher on and open the dashboard"
+      ]
+    },
+    {
+      "id": "flash-watcher.view",
+      "verb": "view",
+      "domain": "diagnostics",
+      "summary": "Start the dashboard in view-only mode against an existing JSONL store. Does not require elevation; no new events are collected.",
+      "accepts": {
+        "bind": "string",
+        "data_dir": "string",
+        "open": "boolean"
+      },
+      "returns": ["dashboard_url"],
+      "requires_approval": false,
+      "examples": [
+        "open the flash watcher dashboard in view mode",
+        "review yesterday's flash captures",
+        "show the dashboard without starting the collector"
+      ]
+    },
+    {
+      "id": "flash-watcher.stop",
+      "verb": "stop",
+      "domain": "diagnostics",
+      "summary": "Stop the running flash-watcher collector and release the ETW session.",
+      "accepts": {},
+      "returns": ["stopped"],
+      "requires_approval": false,
+      "examples": [
+        "stop flash watcher",
+        "turn flash watcher off",
+        "release the ETW session"
+      ]
+    },
+    {
+      "id": "flash-watcher.status",
+      "verb": "status",
+      "domain": "diagnostics",
+      "summary": "Report whether the collector is running, current total event count, top blame-chain rows, and dashboard URL.",
+      "accepts": {},
+      "returns": ["running", "total_events", "top_rows", "dashboard_url"],
+      "requires_approval": false,
+      "examples": [
+        "is flash watcher running",
+        "how many flashes has flash watcher seen today",
+        "give me a flash watcher status"
+      ]
+    },
+    {
+      "id": "flash-watcher.classify-rules",
+      "verb": "list",
+      "domain": "diagnostics",
+      "summary": "Dump the active classification rules (name match, command-line substring, ancestor match) used to tag captured events.",
+      "accepts": {
+        "pretty": "boolean"
+      },
+      "returns": ["rules_json"],
+      "requires_approval": false,
+      "examples": [
+        "show flash watcher classification rules",
+        "what does flash watcher consider a known benign caller",
+        "dump the classifier rule table"
+      ]
+    }
+  ],
+  "escalation": {
+    "auto_restart": false,
+    "max_retries": 0,
+    "notify_after": 1,
+    "requires_human": true
+  }
+}
