@@ -8,7 +8,7 @@ Attribute and eliminate the console windows that flash on this machine. The ETW 
 
 ## Active Work
 - Uncommitted rework in `src/` (dated 2026-05-27): conhost.exe pairing as visibility ground truth, replacing the GUI-parent→Console-child heuristic. Compiles; 2 dead-code warnings (`blame.rs` `subsystem` field, `parent_subsystem`).
-- Untracked `probes/codex-popup-derisk.ps1` + `codex-popupfix-trigger.ps1` (2026-06-05): A/B de-risk of the codex console cascade and a Jordan-paced live trigger for the mercenary `detached: backend !== 'codex'` fix.
+- Untracked `probes/codex-popup-derisk.ps1` + `codex-popupfix-trigger.ps1` and their `probes/popupfix-logs/` output (2026-06-05): A/B de-risk of the codex console cascade and a Jordan-paced live trigger for the mercenary `detached: backend !== 'codex'` fix.
 
 ## Blockers
 - flash-watcher itself did not catch the popups under investigation — the polling `console-watch.ps1` (Windows Terminal `OpenConsole.exe -Embedding` handoff) is what actually detected them.
@@ -31,7 +31,7 @@ Attribute and eliminate the console windows that flash on this machine. The ETW 
 - ConPTY shim for codex — only if the hidden-console inheritance fix fails
 
 ---
-Last memory update: 2026-09-03
-Commits covered through: 9683f18873298965edac9deff4a4219056374428
+Last memory update: 2026-09-04
+Commits covered through: ada210917391921976c3f363035fb534de490f7d
 
-<!-- chinvex:last-commit:9683f18873298965edac9deff4a4219056374428 -->
+<!-- chinvex:last-commit:ada210917391921976c3f363035fb534de490f7d -->
