@@ -7,15 +7,18 @@
 Attribute and eliminate the console windows that flash on this machine. The ETW collector (v0.1.0) is shipped; the active instrument is the no-admin probe suite under `probes/`.
 
 ## Active Work
+- Stalled since 2026-06-05: no code commit has landed since `9683f18`. Everything below is uncommitted working-tree state.
 - Uncommitted rework in `src/` (dated 2026-05-27): conhost.exe pairing as visibility ground truth, replacing the GUI-parent→Console-child heuristic. Compiles; 2 dead-code warnings (`blame.rs` `subsystem` field, `parent_subsystem`).
 - Untracked `probes/codex-popup-derisk.ps1` + `codex-popupfix-trigger.ps1` and their `probes/popupfix-logs/` output (2026-06-05): A/B de-risk of the codex console cascade and a Jordan-paced live trigger for the mercenary `detached: backend !== 'codex'` fix.
 
 ## Blockers
 - flash-watcher itself did not catch the popups under investigation — the polling `console-watch.ps1` (Windows Terminal `OpenConsole.exe -Embedding` handoff) is what actually detected them.
+- Three months of uncommitted work; its verification state is unrecorded.
 
 ## Next Actions
 - [ ] Decide whether to commit or drop the 2026-05-27 conhost-pairing rework; clear its 2 warnings if committing
 - [ ] Verify the conhost-pairing build against the three known repro pairs in `probes/no-admin/repro/`
+- [ ] Read `probes/popupfix-logs/last-run-response.json` and record whether the codex popup fix held
 - [ ] Commit or discard the untracked codex popup probes and their logs
 - [ ] Fold the confirmed flash sources into `BUILTIN_RULES`
 
@@ -31,7 +34,7 @@ Attribute and eliminate the console windows that flash on this machine. The ETW 
 - ConPTY shim for codex — only if the hidden-console inheritance fix fails
 
 ---
-Last memory update: 2026-09-05
-Commits covered through: 27117f2a3cd4738a7e67bbfff0ef9f79d1d7e16c
+Last memory update: 2026-09-06
+Commits covered through: 23dcf4f56edc800ed012d7979cdaf188694ed083
 
-<!-- chinvex:last-commit:27117f2a3cd4738a7e67bbfff0ef9f79d1d7e16c -->
+<!-- chinvex:last-commit:23dcf4f56edc800ed012d7979cdaf188694ed083 -->

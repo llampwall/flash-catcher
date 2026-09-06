@@ -37,6 +37,7 @@
 - flash-watcher was blind to the 2026-09-02 popups: it is not a trustworthy sole instrument for popup attribution — corroborate with `console-watch.ps1` and a WMI process logger (added 2026-09-03)
 - Node `spawn` with `detached: true` silently drops `windowsHide` — a console-less parent spawning a CUI child then gets a fresh VISIBLE console (added 2026-09-03)
 - Sub-poll-interval spawns (cmd, reg, wmic dying in <50ms) fail `enrich_raw` — the PE subsystem read needs OpenProcess plus a file read and the process is already gone; without a name-table fallback these exact flashes are undercounted (added 2026-09-03)
+- `/update-memory` bumping the STATE.md anchor is itself a commit, so the next run always sees "new commits" and bumps again — check whether the only delta is `docs/memory/` before writing anything (added 2026-09-06)
 - `src/` carries an uncommitted conhost-pairing rework dated 2026-05-27 — the committed binary still uses the old GUI-parent heuristic; do not assume `main` behavior matches the working tree (added 2026-09-03)
 
 ## Superseded
