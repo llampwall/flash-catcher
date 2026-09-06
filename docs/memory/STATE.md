@@ -31,7 +31,7 @@ Attribute and eliminate the console windows that flash on this machine. The ETW 
 - ConPTY shim for codex — only if the hidden-console inheritance fix fails
 
 ---
-Last memory update: 2026-09-04
-Commits covered through: aab8ac784c49b28ebff0f2a947f6523ac2f47d84
+Last memory update: 2026-09-05
+Commits covered through: 27117f2a3cd4738a7e67bbfff0ef9f79d1d7e16c
 
-<!-- chinvex:last-commit:aab8ac784c49b28ebff0f2a947f6523ac2f47d84 -->
+<!-- chinvex:last-commit:27117f2a3cd4738a7e67bbfff0ef9f79d1d7e16c -->
